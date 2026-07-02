@@ -1,16 +1,86 @@
-# React + Vite
+# CCAT Practice — Crossover Cognitive Aptitude Test Trainer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A local web app to practice for the [Crossover CCAT](https://www.crossover.com/resources/ccat-guide), with timed tests, SVG-rendered spatial questions, per-category scoring, and a personalized action plan after each session.
 
-Currently, two official plugins are available:
+## Test format (mirrors the real CCAT)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+| Category | Questions | Sub-types |
+|---|---|---|
+| Math & Logic | 18 | Number sequences, Word problems, Algebra, Logical deduction |
+| Verbal Reasoning | 18 | Analogies, Antonyms, Sentence completion, Syllogisms |
+| Spatial Reasoning | 14 | Matrices, Odd one out, Pattern series |
+| **Total** | **50** | **15 minutes · ~18 sec/question** |
 
-## React Compiler
+Pass threshold: **35+ correct** (top 15% of test-takers).
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+- **Timed test** — 15-minute countdown with a ring timer (turns yellow at 3 min, red at 1 min)
+- **Question bank** — questions shuffled each session so tests never repeat identically
+- **Spatial visuals** — SVG-rendered patterns (no image files needed)
+- **Inline explanations** — see why each answer is correct without leaving the test
+- **Results page** — score breakdown by category + sub-type accuracy bars
+- **Score history chart** — tracks progress across multiple sessions (stored in `localStorage`)
+- **Personalized action plan** — specific study tips per weak area generated after each test
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Project structure
+
+```
+src/
+  App.jsx                   # Root: routes between Home and TestEngine
+  index.css                 # Tailwind base import
+
+  components/
+    Home.jsx                # Landing screen, last session summary, history chart
+    TestEngine.jsx          # Test state machine (questions, timer, finish logic)
+    QuestionCard.jsx        # Renders a single question with options and explanation
+    Timer.jsx               # Circular countdown SVG
+    SpatialQuestion.jsx     # SVG renderer for all spatial question visuals
+    Results.jsx             # Score breakdown, action plan, session history
+
+  data/
+    questions.js            # Full question bank + CATEGORY_INFO metadata
+    testBuilder.js          # Builds a shuffled 50-question test each session
+    storage.js              # localStorage helpers (save/load/clear sessions)
+```
+
+## Running locally
+
+Requires **Node.js 18+**.
+
+```bash
+# Install dependencies (first time only)
+npm install
+
+# Start dev server
+npm run dev
+# → Open http://localhost:5173 in your browser
+
+# Production build (optional)
+npm run build
+```
+
+## Adding questions
+
+Open [`src/data/questions.js`](src/data/questions.js) and add an object to the `questions` array:
+
+```js
+{
+  id: 100,                        // unique number
+  category: "math_logic",         // math_logic | verbal | spatial
+  type: "number_sequence",        // see sub-types table above
+  question: "2, 4, 8, 16, ___",
+  options: ["24", "32", "30", "18"],
+  answer: "32",
+  explanation: "Each number is multiplied by 2."
+}
+```
+
+Spatial questions additionally need a `visual` field — see existing spatial entries in the file for examples.
+
+## Tech stack
+
+- [React 19](https://react.dev/) + [Vite 8](https://vite.dev/)
+- [Tailwind CSS v4](https://tailwindcss.com/) (via `@tailwindcss/vite`)
+- [Lucide React](https://lucide.dev/) for icons
+- No backend — all data lives in `localStorage`
