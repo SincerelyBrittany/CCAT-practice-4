@@ -1,41 +1,26 @@
-import { useEffect, useRef } from "react";
+import { fmt } from "../data/format";
 
-export default function Timer({ secondsLeft, onExpire }) {
-  const prevRef = useRef(secondsLeft);
+// Countdown ring when the test is timed; a simple stopwatch when it isn't.
+export default function Timer({ secondsLeft, totalSeconds, elapsed }) {
+  if (!totalSeconds) {
+    return <div className="text-lg font-mono font-bold text-gray-500 tabular-nums">{fmt(elapsed)}</div>;
+  }
 
-  useEffect(() => {
-    if (secondsLeft <= 0 && prevRef.current > 0) {
-      onExpire();
-    }
-    prevRef.current = secondsLeft;
-  }, [secondsLeft, onExpire]);
-
-  const mins = Math.floor(secondsLeft / 60);
-  const secs = secondsLeft % 60;
-  const pct = secondsLeft / (15 * 60);
-  const urgent = secondsLeft <= 60;
-  const warning = secondsLeft <= 180;
-
-  const color = urgent ? "#EF4444" : warning ? "#F59E0B" : "#10B981";
+  const pct = secondsLeft / totalSeconds;
+  // Warn relative to the test length so a 3-minute sprint doesn't start out orange.
+  const color = pct <= 0.1 ? "#EF4444" : pct <= 0.25 ? "#F59E0B" : "#10B981";
+  const C = 2 * Math.PI * 18;
 
   return (
-    <div className="flex items-center gap-3">
-      <div className="relative w-12 h-12">
-        <svg viewBox="0 0 44 44" className="w-12 h-12 -rotate-90">
-          <circle cx="22" cy="22" r="18" fill="none" stroke="#E5E7EB" strokeWidth="4" />
-          <circle
-            cx="22" cy="22" r="18" fill="none"
-            stroke={color} strokeWidth="4"
-            strokeDasharray={`${2 * Math.PI * 18}`}
-            strokeDashoffset={`${2 * Math.PI * 18 * (1 - pct)}`}
-            strokeLinecap="round"
-            style={{ transition: "stroke-dashoffset 1s linear, stroke 0.5s" }}
-          />
-        </svg>
-      </div>
-      <span className="text-xl font-mono font-bold" style={{ color }}>
-        {String(mins).padStart(2, "0")}:{String(secs).padStart(2, "0")}
-      </span>
+    <div className="flex items-center gap-2">
+      <svg viewBox="0 0 44 44" className="w-11 h-11 -rotate-90">
+        <circle cx="22" cy="22" r="18" fill="none" stroke="#E5E7EB" strokeWidth="4" />
+        <circle
+          cx="22" cy="22" r="18" fill="none" stroke={color} strokeWidth="4"
+          strokeDasharray={C} strokeDashoffset={C * (1 - pct)} strokeLinecap="round"
+        />
+      </svg>
+      <span className="text-lg font-mono font-bold tabular-nums" style={{ color }}>{fmt(secondsLeft)}</span>
     </div>
   );
 }
