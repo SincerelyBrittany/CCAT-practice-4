@@ -1,240 +1,213 @@
-import { CATEGORY_INFO } from "../data/questions";
-import { loadSessions } from "../data/storage";
-import { CheckCircle, XCircle, TrendingUp, BookOpen, Brain, Shapes } from "lucide-react";
+import { useMemo, useState } from "react";
+import { CheckCircle, XCircle, Clock, RotateCcw, Target, Home as HomeIcon, ChevronDown } from "lucide-react";
+import { CATEGORIES, QUESTIONS_BY_ID, typeLabel } from "../data/bank";
+import { fmt } from "../data/format";
+import { TIPS } from "../data/tips";
+import QuestionCard from "./QuestionCard";
 
-const PASS_SCORE = 35;
-const TOTAL = 50;
+// Crossover's commonly cited bar is 35/50; scale it for shorter tests.
+const PASS_RATE = 0.7;
 
-function buildActionPlan(breakdown) {
-  const plan = [];
-
-  Object.entries(breakdown).forEach(([cat, data]) => {
-    const info = CATEGORY_INFO[cat];
-    const pct = data.total > 0 ? (data.correct / data.total) * 100 : 0;
-
-    if (pct < 50) {
-      // Weak area — detailed plan
-      plan.push({
-        category: cat,
-        label: info.label,
-        color: info.color,
-        bgColor: info.bgColor,
-        severity: "high",
-        pct,
-        tips: getTips(cat, data.byType, "high"),
-      });
-    } else if (pct < 75) {
-      plan.push({
-        category: cat,
-        label: info.label,
-        color: info.color,
-        bgColor: info.bgColor,
-        severity: "medium",
-        pct,
-        tips: getTips(cat, data.byType, "medium"),
-      });
-    } else {
-      plan.push({
-        category: cat,
-        label: info.label,
-        color: info.color,
-        bgColor: info.bgColor,
-        severity: "good",
-        pct,
-        tips: [`Strong performance — keep practicing to stay sharp.`],
-      });
-    }
-  });
-
-  return plan.sort((a, b) => a.pct - b.pct);
-}
-
-function getTips(cat, byType, severity) {
-  const tips = [];
-
-  if (cat === "math_logic") {
-    if ((byType.number_sequence?.correct ?? 0) < (byType.number_sequence?.total ?? 0) * 0.7)
-      tips.push("Number Sequences: Practice identifying arithmetic (+/-), geometric (×/÷), and combined patterns. Look for differences between consecutive terms first.");
-    if ((byType.word_problem?.correct ?? 0) < (byType.word_problem?.total ?? 0) * 0.7)
-      tips.push("Word Problems: Underline key numbers and relationships. Convert words to equations before solving. Practice rate × time = distance, and percentage formulas.");
-    if ((byType.algebra?.correct ?? 0) < (byType.algebra?.total ?? 0) * 0.7)
-      tips.push("Algebra: Drill isolating variables (add/subtract/multiply/divide both sides). Substitute values to verify your answer.");
-    if ((byType.logical_deduction?.correct ?? 0) < (byType.logical_deduction?.total ?? 0) * 0.7)
-      tips.push("Logical Deduction: Study syllogism forms (All A→B, Some A→B, No A→B). Watch for invalid conclusions like 'affirming the consequent'.");
-    if (tips.length === 0)
-      tips.push(severity === "high"
-        ? "Review all math fundamentals: fractions, percentages, ratios, basic algebra, and logical syllogisms."
-        : "Focus on speed — you know the material but need to solve faster under the 18-second limit.");
-  }
-
-  if (cat === "verbal") {
-    if ((byType.analogy?.correct ?? 0) < (byType.analogy?.total ?? 0) * 0.7)
-      tips.push("Analogies: Always identify the relationship type first (tool→user, part→whole, characteristic, category). Then apply it to the answer choices.");
-    if ((byType.antonym?.correct ?? 0) < (byType.antonym?.total ?? 0) * 0.7)
-      tips.push("Antonyms: Build vocabulary with word-root practice. Focus on high-frequency GRE/SAT words and their opposites.");
-    if ((byType.sentence_completion?.correct ?? 0) < (byType.sentence_completion?.total ?? 0) * 0.7)
-      tips.push("Sentence Completion: Look for contrast words (despite, however, although) and support words (therefore, since). They signal whether the blank should agree or contrast with the rest.");
-    if ((byType.syllogism?.correct ?? 0) < (byType.syllogism?.total ?? 0) * 0.7)
-      tips.push("Syllogisms: Map each statement to its logical form. Remember: 'Some A are B' does NOT mean 'All A are B'. Avoid over-generalizing.");
-    if (tips.length === 0)
-      tips.push(severity === "high"
-        ? "Read actively every day — news, essays, or books. Expand vocabulary using flashcards (Quizlet or Anki) with 10 new words per day."
-        : "You're close to mastery. Focus on the question types where you made errors and practice elimination strategies.");
-  }
-
-  if (cat === "spatial") {
-    if ((byType.matrix?.correct ?? 0) < (byType.matrix?.total ?? 0) * 0.7)
-      tips.push("Matrices: Scan rows AND columns independently for the rule. Common rules: rotation, size change, shape substitution, overlay/combine.");
-    if ((byType.odd_one_out?.correct ?? 0) < (byType.odd_one_out?.total ?? 0) * 0.7)
-      tips.push("Odd One Out: Check multiple properties in order — color/fill, number of sides, size, orientation, symmetry. The rule is usually the simplest one that isolates one shape.");
-    if ((byType.pattern_series?.correct ?? 0) < (byType.pattern_series?.total ?? 0) * 0.7)
-      tips.push("Pattern Series: Identify one transformation at a time (rotation, reflection, addition/removal of elements). Practice with Raven's Progressive Matrices.");
-    if (tips.length === 0)
-      tips.push(severity === "high"
-        ? "Spatial reasoning is trainable. Practice with free tools like Raven's Matrices and mental rotation exercises for 15 min/day."
-        : "Good spatial sense. Increase speed by recognizing patterns faster — name the rule within 5 seconds of seeing the figure.");
-  }
-
-  return tips;
-}
-
-function CategoryBar({ label, correct, total, color, bgColor }) {
-  const pct = total > 0 ? Math.round((correct / total) * 100) : 0;
+function Bar({ label, correct, total, color }) {
+  const pct = total ? Math.round((correct / total) * 100) : 0;
   return (
     <div>
       <div className="flex justify-between text-sm mb-1">
         <span className="font-medium text-gray-700">{label}</span>
-        <span className="font-semibold" style={{ color }}>{correct}/{total} ({pct}%)</span>
+        <span className="font-semibold tabular-nums" style={{ color }}>{correct}/{total} · {pct}%</span>
       </div>
-      <div className="h-3 rounded-full bg-gray-100 overflow-hidden">
-        <div
-          className="h-3 rounded-full transition-all duration-700"
-          style={{ width: `${pct}%`, backgroundColor: color }}
-        />
+      <div className="h-2.5 rounded-full bg-gray-100 overflow-hidden">
+        <div className="h-2.5 rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
       </div>
     </div>
   );
 }
 
-function HistoryChart({ sessions }) {
-  if (sessions.length < 2) return null;
-  const last8 = sessions.slice(-8);
-  const max = 50;
-  const W = 300;
-  const H = 80;
-  const pad = 20;
-  const pts = last8.map((s, i) => {
-    const x = pad + (i / (last8.length - 1)) * (W - pad * 2);
-    const y = H - pad - ((s.score / max) * (H - pad * 2));
-    return `${x},${y}`;
-  }).join(" ");
-
-  return (
-    <div className="mt-4">
-      <p className="text-sm font-semibold text-gray-600 mb-2 flex items-center gap-1">
-        <TrendingUp size={14} /> Score History
-      </p>
-      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`}>
-        {/* Pass line */}
-        <line x1={pad} y1={H - pad - ((PASS_SCORE / max) * (H - pad * 2))} x2={W - pad} y2={H - pad - ((PASS_SCORE / max) * (H - pad * 2))} stroke="#10B981" strokeDasharray="4" strokeWidth="1" />
-        <text x={W - pad + 2} y={H - pad - ((PASS_SCORE / max) * (H - pad * 2)) + 4} fontSize="9" fill="#10B981">Pass</text>
-        <polyline points={pts} fill="none" stroke="#6366F1" strokeWidth="2" />
-        {last8.map((s, i) => {
-          const x = pad + (i / (last8.length - 1)) * (W - pad * 2);
-          const y = H - pad - ((s.score / max) * (H - pad * 2));
-          return <circle key={i} cx={x} cy={y} r={3} fill="#6366F1" />;
-        })}
-      </svg>
-    </div>
-  );
+function statusOf(r) {
+  if (!r.reached) return "not reached";
+  if (r.selected == null) return "skipped";
+  return r.correct ? "correct" : "wrong";
 }
 
-export default function Results({ session, onRetry, onHome }) {
-  const { score, breakdown, timeTaken } = session;
-  const passed = score >= PASS_SCORE;
-  const pct = Math.round((score / TOTAL) * 100);
-  const plan = buildActionPlan(breakdown);
-  const sessions = loadSessions();
+const STATUS_STYLE = {
+  correct: "bg-green-50 text-green-700",
+  wrong: "bg-red-50 text-red-600",
+  skipped: "bg-amber-50 text-amber-700",
+  "not reached": "bg-gray-100 text-gray-500",
+};
 
-  const catIcons = { math_logic: Brain, verbal: BookOpen, spatial: Shapes };
+export default function Results({ session, onStart, onHome }) {
+  const { score, total, results, timeUsed, config } = session;
+  const [filter, setFilter] = useState("missed");
+  const [open, setOpen] = useState(null);
+
+  const passScore = Math.ceil(total * PASS_RATE);
+  const passed = score >= passScore;
+  const reached = results.filter((r) => r.reached);
+  const avgSeconds = reached.length ? reached.reduce((s, r) => s + r.seconds, 0) / reached.length : 0;
+  const missed = results.filter((r) => !r.correct);
+
+  const byCategory = useMemo(() => {
+    const out = {};
+    for (const r of results) {
+      out[r.category] ??= { correct: 0, total: 0 };
+      out[r.category].total++;
+      if (r.correct) out[r.category].correct++;
+    }
+    return out;
+  }, [results]);
+
+  const byType = useMemo(() => {
+    const out = {};
+    for (const r of results) {
+      const k = `${r.category}:${r.type}`;
+      out[k] ??= { category: r.category, type: r.type, correct: 0, total: 0, seconds: 0 };
+      out[k].total++;
+      out[k].seconds += r.seconds;
+      if (r.correct) out[k].correct++;
+    }
+    return Object.values(out).sort((a, b) => a.correct / a.total - b.correct / b.total);
+  }, [results]);
+
+  const weakTypes = byType.filter((t) => t.correct / t.total < 0.7).slice(0, 3);
+  const slowest = [...reached].sort((a, b) => b.seconds - a.seconds).slice(0, 5);
+
+  const shown = results
+    .map((r, i) => ({ ...r, n: i + 1 }))
+    .filter((r) => (filter === "all" ? true : filter === "missed" ? !r.correct : r.correct));
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
-      {/* Score header */}
-      <div className={`rounded-2xl p-6 text-center ${passed ? "bg-green-50 border border-green-200" : "bg-red-50 border border-red-200"}`}>
+    <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
+      <div className={`rounded-2xl p-6 text-center border ${passed ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}>
         <div className="flex justify-center mb-2">
-          {passed
-            ? <CheckCircle size={48} className="text-green-500" />
-            : <XCircle size={48} className="text-red-400" />}
+          {passed ? <CheckCircle size={44} className="text-green-500" /> : <XCircle size={44} className="text-red-400" />}
         </div>
-        <p className="text-4xl font-bold mb-1" style={{ color: passed ? "#10B981" : "#EF4444" }}>
-          {score} / {TOTAL}
-        </p>
-        <p className="text-lg font-semibold text-gray-700">{pct}% correct</p>
+        <p className="text-4xl font-bold tabular-nums" style={{ color: passed ? "#10B981" : "#EF4444" }}>{score} / {total}</p>
+        <p className="text-lg font-semibold text-gray-700">{Math.round((score / total) * 100)}% correct</p>
         <p className="text-sm text-gray-500 mt-1">
-          {passed ? "You met the Crossover passing threshold (35+)!" : `You need ${PASS_SCORE - score} more correct answers to pass.`}
+          {passed
+            ? `At or above the ${passScore}/${total} target (35/50 scaled).`
+            : `${passScore - score} more correct to reach the ${passScore}/${total} target (35/50 scaled).`}
         </p>
-        {timeTaken && (
-          <p className="text-xs text-gray-400 mt-1">
-            Time used: {Math.floor(timeTaken / 60)}m {timeTaken % 60}s
-          </p>
-        )}
+        <div className="flex justify-center gap-4 mt-3 text-xs text-gray-500">
+          <span className="flex items-center gap-1"><Clock size={12} /> {fmt(timeUsed)} used</span>
+          <span>{Math.round(avgSeconds)}s per question</span>
+          {results.length - reached.length > 0 && <span>{results.length - reached.length} not reached</span>}
+        </div>
       </div>
 
-      {/* Category breakdown */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-        <h2 className="font-bold text-gray-800 text-lg">Score Breakdown</h2>
-        {Object.entries(breakdown).map(([cat, data]) => (
-          <CategoryBar
-            key={cat}
-            label={CATEGORY_INFO[cat].label}
-            correct={data.correct}
-            total={data.total}
-            color={CATEGORY_INFO[cat].color}
-            bgColor={CATEGORY_INFO[cat].bgColor}
-          />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <button onClick={() => onStart({ ...config, ids: undefined })} className="flex items-center justify-center gap-2 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold">
+          <RotateCcw size={15} /> New test
+        </button>
+        <button
+          disabled={!missed.length}
+          onClick={() => onStart({ ...config, ids: missed.map((r) => r.id), count: missed.length, mode: "practice", minutes: 0 })}
+          className="flex items-center justify-center gap-2 py-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold disabled:opacity-40"
+        >
+          <Target size={15} /> Redo {missed.length} missed
+        </button>
+        <button onClick={onHome} className="col-span-2 sm:col-span-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-semibold">
+          <HomeIcon size={15} /> Home
+        </button>
+      </div>
+
+      <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-4">
+        <h2 className="font-bold text-gray-800">By category</h2>
+        {Object.entries(byCategory).map(([cat, d]) => (
+          <Bar key={cat} label={CATEGORIES[cat].label} correct={d.correct} total={d.total} color={CATEGORIES[cat].color} />
         ))}
-        <HistoryChart sessions={sessions} />
-      </div>
-
-      {/* Action plan */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
-        <h2 className="font-bold text-gray-800 text-lg">Personalized Action Plan</h2>
-        {plan.map((item) => {
-          const Icon = catIcons[item.category];
-          const severityLabel = item.severity === "high" ? "Needs Work" : item.severity === "medium" ? "Improve" : "Strong";
-          const severityColor = item.severity === "high" ? "#EF4444" : item.severity === "medium" ? "#F59E0B" : "#10B981";
-          return (
-            <div key={item.category} className="rounded-xl border p-4" style={{ borderColor: item.color + "44", backgroundColor: item.bgColor }}>
-              <div className="flex items-center gap-2 mb-2">
-                <Icon size={18} style={{ color: item.color }} />
-                <span className="font-semibold text-gray-800">{item.label}</span>
-                <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full" style={{ color: severityColor, backgroundColor: severityColor + "18" }}>
-                  {severityLabel} — {Math.round(item.pct)}%
+        <h3 className="font-semibold text-gray-700 text-sm pt-2">By question type (weakest first)</h3>
+        <div className="divide-y divide-gray-100 text-sm">
+          {byType.map((t) => (
+            <div key={`${t.category}:${t.type}`} className="flex items-center justify-between py-1.5">
+              <span className="text-gray-700">{typeLabel(t.category, t.type)}</span>
+              <span className="tabular-nums text-gray-500">
+                <span className="font-semibold" style={{ color: t.correct === t.total ? "#10B981" : t.correct / t.total < 0.5 ? "#EF4444" : "#F59E0B" }}>
+                  {t.correct}/{t.total}
                 </span>
+                <span className="ml-3 text-xs">{Math.round(t.seconds / t.total)}s avg</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {weakTypes.length > 0 && (
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 space-y-3">
+          <h2 className="font-bold text-gray-800">What to work on</h2>
+          {weakTypes.map((t) => (
+            <div key={t.type} className="rounded-xl p-3" style={{ backgroundColor: CATEGORIES[t.category].bgColor }}>
+              <div className="flex items-center justify-between gap-2">
+                <p className="font-semibold text-sm" style={{ color: CATEGORIES[t.category].color }}>{typeLabel(t.category, t.type)}</p>
+                <button
+                  onClick={() => onStart({ ...config, ids: undefined, categories: [t.category], types: [`${t.category}:${t.type}`], count: 10, minutes: 0, mode: "practice", source: "fresh" })}
+                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/70 hover:bg-white text-gray-700"
+                >
+                  Drill 10 →
+                </button>
               </div>
-              <ul className="space-y-1">
-                {item.tips.map((tip, i) => (
-                  <li key={i} className="text-sm text-gray-700 flex gap-2">
-                    <span className="mt-0.5 shrink-0" style={{ color: item.color }}>▸</span>
-                    <span>{tip}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="text-sm text-gray-700 mt-1">{TIPS[t.type]}</p>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {slowest.length > 0 && config.minutes > 0 && (
+        <section className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 className="font-bold text-gray-800 mb-2">Where your time went</h2>
+          <p className="text-xs text-gray-500 mb-2">
+            Target is about {Math.round((config.minutes * 60) / total)}s per question. On the real test, skipping a time-sink is often the right call.
+          </p>
+          <div className="divide-y divide-gray-100 text-sm">
+            {slowest.map((r) => (
+              <button key={r.id} onClick={() => { setFilter("all"); setOpen(r.id); }} className="w-full flex justify-between py-1.5 text-left hover:bg-gray-50">
+                <span className="text-gray-700 truncate pr-3">
+                  Q{results.indexOf(r) + 1} · {typeLabel(r.category, r.type)}
+                </span>
+                <span className="tabular-nums text-gray-500 shrink-0">
+                  {Math.round(r.seconds)}s <span className={`ml-2 text-xs px-1.5 py-0.5 rounded ${STATUS_STYLE[statusOf(r)]}`}>{statusOf(r)}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="font-bold text-gray-800">Review answers</h2>
+          <div className="flex gap-1 text-xs">
+            {[["missed", `Missed (${missed.length})`], ["correct", "Correct"], ["all", "All"]].map(([k, label]) => (
+              <button key={k} onClick={() => setFilter(k)} className={`px-2.5 py-1 rounded-lg font-semibold ${filter === k ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-600"}`}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {shown.length === 0 && <p className="text-sm text-gray-500">Nothing here.</p>}
+        {shown.map((r) => {
+          const q = QUESTIONS_BY_ID[r.id];
+          if (!q) return null;
+          const isOpen = open === r.id;
+          return (
+            <div key={r.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm">
+              <button onClick={() => setOpen(isOpen ? null : r.id)} className="w-full flex items-center gap-3 px-4 py-3 text-left">
+                <span className="text-xs font-bold text-gray-400 w-8">Q{r.n}</span>
+                <span className="flex-1 text-sm text-gray-700 truncate">{q.question.split("\n")[0]}</span>
+                <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_STYLE[statusOf(r)]}`}>{statusOf(r)}</span>
+                <ChevronDown size={16} className={`text-gray-400 shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+              </button>
+              {isOpen && (
+                <div className="px-2 pb-2">
+                  <QuestionCard question={{ ...q, options: r.options ?? q.options }} selected={r.selected} onSelect={() => {}} reveal />
+                  <p className="text-xs text-gray-400 px-3 pt-2">Time spent: {Math.round(r.seconds)}s · Source: {q.source}</p>
+                </div>
+              )}
             </div>
           );
         })}
-      </div>
-
-      {/* Actions */}
-      <div className="flex gap-3">
-        <button onClick={onRetry} className="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 rounded-xl transition-colors">
-          Practice Again
-        </button>
-        <button onClick={onHome} className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl transition-colors">
-          Home
-        </button>
-      </div>
+      </section>
     </div>
   );
 }

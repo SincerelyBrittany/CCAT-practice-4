@@ -1,0 +1,41 @@
+{
+  "math_logic": {
+    "label": "Math & Logic",
+    "share": 0.36,
+    "types": {
+      "number_series": "Number Series",
+      "letter_series": "Letter Series",
+      "percent": "Percentages",
+      "word_problem": "Word Problems",
+      "rates_work": "Rates & Work",
+      "average": "Averages",
+      "ratio": "Ratios & Proportions",
+      "decimals_fractions": "Decimals & Fractions",
+      "probability_counting": "Probability & Counting",
+      "algebra": "Algebra",
+      "chart": "Tables & Charts",
+      "logic": "Logic Puzzles"
+    }
+  },
+  "verbal": {
+    "label": "Verbal",
+    "share": 0.36,
+    "types": {
+      "analogy": "Analogies",
+      "antonym": "Antonyms",
+      "sentence_completion": "Sentence Completion",
+      "syllogism": "True / False / Uncertain",
+      "attention_to_detail": "Attention to Detail"
+    }
+  },
+  "spatial": {
+    "label": "Spatial",
+    "share": 0.28,
+    "types": {
+      "next_in_series": "Next in Series",
+      "matrix": "Matrices",
+      "odd_one_out": "Odd One Out",
+      "rotation": "Rotation & Reflection"
+    }
+  }
+}
